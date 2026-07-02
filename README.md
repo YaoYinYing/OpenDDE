@@ -1,4 +1,4 @@
-# OpenDDE
+# OpenDDE-Preview
 
 ![OpenDDE banner](assets/OpenDDE.png)
 
