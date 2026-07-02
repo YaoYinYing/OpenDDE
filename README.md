@@ -8,11 +8,21 @@
 
 OpenDDE is an open-source, all-atom biomolecular foundation model that turns co-folding into a scalable engine for structure prediction, design, and optimization in drug discovery.
 
+
 > [!IMPORTANT]
 > OpenDDE is a preview release. CLI flags, input/output JSON fields, and released
 > checkpoints may change between versions, and predictions are not guaranteed to
 > be reproducible across releases. It is not yet intended for production
 > pipelines. Please open an issue for bugs, regressions, or feature requests.
+
+![OpenDDE banner](assets/scaling_law.png)
+
+
+## News
+- **2026-07-03: OpenDDE-Preview has been released! See the [technical report](assets/OpenDDE_Technical_Reports.pdf).**
+    - Model weights can be downloaded from Hugging Face: [opendde.pt](https://huggingface.co/aurekaresearch/OpenDDE/resolve/main/opendde.pt) | [opendde_abag.pt](https://huggingface.co/aurekaresearch/OpenDDE/resolve/main/opendde_abag.pt)
+    - The Docker image can be pulled with `docker pull aurekaresearch/opendde:v1`
+
 
 ## Installation
 
@@ -94,8 +104,8 @@ Released checkpoints:
 
 | Checkpoint | Use case | Download |
 | --- | --- | --- |
-| `opendde.pt` | General-purpose OpenDDE checkpoint. | [opendde.pt](https://huggingface.co/aurekaresearch/OpenDDE/resolve/main/opendde.pt) |
-| `opendde_abag.pt` | ABAG-optimized checkpoint for antibody-antigen complexes. | [opendde_abag.pt](https://huggingface.co/aurekaresearch/OpenDDE/resolve/main/opendde_abag.pt) |
+| `opendde.pt` | General-purpose checkpoint. | [opendde.pt](https://huggingface.co/aurekaresearch/OpenDDE/resolve/main/opendde.pt) |
+| `opendde_abag.pt` | Checkpoint tuned on antibody-antigen. | [opendde_abag.pt](https://huggingface.co/aurekaresearch/OpenDDE/resolve/main/opendde_abag.pt) |
 
 Use `opendde.pt` with `-n opendde_v1` for the default model. For ABAG runs,
 keep the filename as `opendde_abag.pt` and pass it explicitly:
@@ -233,3 +243,8 @@ AlphaFold 3, Protenix, OpenFold, and ColabFold.
 ## License
 
 OpenDDE is released under the Apache-2.0 license. See [LICENSE](LICENSE).
+
+## Hiring
+
+
+![Hiring](assets/hiring.png)
