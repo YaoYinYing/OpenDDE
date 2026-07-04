@@ -8,7 +8,6 @@
 
 OpenDDE is an open-source, all-atom biomolecular foundation model that turns co-folding into a scalable engine for structure prediction, design, and optimization in drug discovery.
 
-
 > [!IMPORTANT]
 > OpenDDE is a preview release. CLI flags, input/output JSON fields, and released
 > checkpoints may change between versions, and predictions are not guaranteed to
@@ -16,13 +15,14 @@ OpenDDE is an open-source, all-atom biomolecular foundation model that turns co-
 > pipelines. Please open an issue for bugs, regressions, or feature requests.
 
 ![OpenDDE banner](assets/scaling_law.png)
-
+![results](assets/results.png)
 
 ## News
+
 - **2026-07-03: OpenDDE-Preview has been released! See the [technical report](assets/OpenDDE_Technical_Reports.pdf).**
     - Model weights can be downloaded from Hugging Face: [opendde.pt](https://huggingface.co/aurekaresearch/OpenDDE/resolve/main/opendde.pt) | [opendde_abag.pt](https://huggingface.co/aurekaresearch/OpenDDE/resolve/main/opendde_abag.pt)
     - The Docker image can be pulled with `docker pull aurekaresearch/opendde:v1`
-
+    - The 2026ARK-AB Benchmark is now available
 
 ## Installation
 
@@ -102,9 +102,9 @@ bash scripts/download_opendde_data.sh --skip-search-database
 
 Released checkpoints:
 
-| Checkpoint | Use case | Download |
-| --- | --- | --- |
-| `opendde.pt` | General-purpose checkpoint. | [opendde.pt](https://huggingface.co/aurekaresearch/OpenDDE/resolve/main/opendde.pt) |
+| Checkpoint        | Use case                              | Download                                                                                      |
+| ----------------- | ------------------------------------- | --------------------------------------------------------------------------------------------- |
+| `opendde.pt`      | General-purpose checkpoint.           | [opendde.pt](https://huggingface.co/aurekaresearch/OpenDDE/resolve/main/opendde.pt)           |
 | `opendde_abag.pt` | Checkpoint tuned on antibody-antigen. | [opendde_abag.pt](https://huggingface.co/aurekaresearch/OpenDDE/resolve/main/opendde_abag.pt) |
 
 Use `opendde.pt` with `-n opendde_v1` for the default model. For ABAG runs,
@@ -126,18 +126,18 @@ Save this minimal OpenDDE input as `tiny.json`:
 
 ```json
 [
-  {
-    "name": "tiny",
-    "modelSeeds": [101],
-    "sequences": [
-      {
-        "proteinChain": {
-          "sequence": "ACDEFGHIK",
-          "count": 1
-        }
-      }
-    ]
-  }
+    {
+        "name": "tiny",
+        "modelSeeds": [101],
+        "sequences": [
+            {
+                "proteinChain": {
+                    "sequence": "ACDEFGHIK",
+                    "count": 1
+                }
+            }
+        ]
+    }
 ]
 ```
 
@@ -239,12 +239,10 @@ If you use OpenDDE in your work, please cite this software and the related work.
 OpenDDE builds on ideas and components from the AlphaFold 3 ecosystem, including
 AlphaFold 3, Protenix, OpenFold, and ColabFold.
 
-
 ## License
 
 OpenDDE is released under the Apache-2.0 license. See [LICENSE](LICENSE).
 
 ## Hiring
-
 
 ![Hiring](assets/hiring.png)
