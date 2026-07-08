@@ -9,6 +9,7 @@ from opendde.distributed.foldcp import real_pairformer
 from opendde.distributed.foldcp.pair_sharding import FoldCPPairShardSpec
 from opendde.model.modules import diffusion as diffusion_module
 from opendde.model.modules.confidence import ConfidenceHead
+from opendde.model.opendde import OpenDDE
 
 
 def test_confidence_logits_use_shared_row_slab_launch_policy(monkeypatch):
@@ -246,6 +247,36 @@ def test_foldcp_confidence_non_output_rank_processes_every_sample(monkeypatch):
 
     assert result == (None, None, None, None)
     assert calls == [(4, 3), (4, 3), (4, 3)]
+
+
+def test_foldcp_model_seed_non_output_rank_skips_rank0_output_merge(monkeypatch):
+    model = OpenDDE.__new__(OpenDDE)
+    torch.nn.Module.__init__(model)
+    monkeypatch.setattr(model, "_foldcp_is_non_output_rank", lambda: True)
+
+    calls = []
+
+    def fake_main_inference_loop(**_kwargs):
+        calls.append(len(calls) + 1)
+        value = calls[-1]
+        return (
+            {"coordinate": torch.tensor([[value]], dtype=torch.float32)},
+            {"call": value},
+            {"elapsed": float(value)},
+        )
+
+    monkeypatch.setattr(model, "_main_inference_loop", fake_main_inference_loop)
+
+    pred_dict, log_dict, time_tracker = model.main_inference_loop(
+        input_feature_dict={},
+        N_cycle=1,
+        N_model_seed=3,
+    )
+
+    assert calls == [1, 2, 3]
+    assert pred_dict["coordinate"].item() == 3
+    assert log_dict["call"].tolist() == [1, 2, 3]
+    assert time_tracker["elapsed"].tolist() == [1.0, 2.0, 3.0]
 
 
 def test_diffusion_cache_projection_uses_shared_row_slab_launch_policy(monkeypatch):
