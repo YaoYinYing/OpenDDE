@@ -8,6 +8,13 @@ DEFAULT_SEARCH_DATABASE_URL="https://storage.googleapis.com/alphafold-databases/
 DEFAULT_MODEL_NAME="opendde_v1"
 DEFAULT_MODEL_SOURCE_FILE="opendde.pt"
 
+# If set to an existing AlphaFold3 database root, common and search-database
+# files that already exist there will be hard-linked instead of downloaded.
+# Leave empty to always download.  Example: /mnt/db/alphafold3
+ORIGINAL_AF3_DB_PATH="${ORIGINAL_AF3_DB_PATH:-}"
+
+
+
 COMMON_FILES=(
     "components.cif"
     "components.cif.rdkit_mol.pkl"
@@ -180,12 +187,25 @@ download_url() {
     local dest="$2"
     mkdir -p "$(dirname "$dest")"
 
-    if command -v curl >/dev/null 2>&1; then
+    if command -v aria2c >/dev/null 2>&1; then
+        aria2c \
+            --max-connection-per-server=8 \
+            --split=8 \
+            --min-split-size=2M \
+            --max-tries=30 \
+            --retry-wait=10 \
+            --connect-timeout=30 \
+            --continue=true \
+            --console-log-level=warn \
+            --out="$(basename "$dest")" \
+            --dir="$(dirname "$dest")" \
+            "$url"
+    elif command -v curl >/dev/null 2>&1; then
         curl -L --fail --retry 3 --connect-timeout 30 -o "$dest" "$url"
     elif command -v wget >/dev/null 2>&1; then
         wget -O "$dest" "$url"
     else
-        err "Neither curl nor wget is installed; cannot download $url"
+        err "Neither aria2c, curl, nor wget is installed; cannot download $url"
     fi
 }
 
@@ -220,7 +240,10 @@ try_copy_or_download() {
         return
     fi
 
-    rm -f "$tmp_dest" "$download_dest"
+    # In force mode, discard any partial leftovers so we start fresh.
+    if [[ "$FORCE" -eq 1 ]]; then
+        rm -f "$tmp_dest" "$download_dest"
+    fi
     mkdir -p "$(dirname "$dest")"
     if is_url "$source"; then
         if [[ "$source" =~ ^file:// ]]; then
@@ -230,7 +253,11 @@ try_copy_or_download() {
         else
             info "Downloading $source"
             if ! download_url "$source" "$download_dest"; then
-                rm -f "$tmp_dest" "$download_dest"
+                # Keep download_dest — a partial download can be resumed by
+                # aria2c's --continue=true on the next invocation.
+                # Only clean up the decompressed tmp file (if it exists).
+                rm -f "$tmp_dest"
+                warn "Download did not complete; partial file preserved for resume"
                 return 1
             fi
         fi
@@ -303,6 +330,60 @@ download_files_from() {
     done
 }
 
+# Iterates over files, trying first to hard-link from ORIGINAL_AF3_DB_PATH
+# (when set) and falling back to downloading from base_url.
+link_or_download_files_from() {
+    local base_url="$1"
+    local subdir="$2"
+    shift 2
+    local file
+    local dest_file
+    local original
+    local target
+
+    mkdir -p "${OPENDDE_ROOT}/${subdir}"
+    for file in "$@"; do
+        dest_file="$file"
+        if [[ "$file" == *.zst ]]; then
+            dest_file="${file%.zst}"
+        fi
+        target="${OPENDDE_ROOT}/${subdir}/${dest_file}"
+
+        # If the caller already verified readiness, skip — but FORCE
+        # overrides so we still enter the loop body below.
+        if [[ -f "$target" && "$FORCE" -eq 0 ]]; then
+            info "Already exists: $target"
+            continue
+        fi
+
+        # 1) Try hard-linking from an existing AlphaFold3 database.
+        if [[ -n "${ORIGINAL_AF3_DB_PATH:-}" ]]; then
+            local found_original=""
+            for candidate in \
+                "${ORIGINAL_AF3_DB_PATH}/${subdir}/${dest_file}" \
+                "${ORIGINAL_AF3_DB_PATH}/${dest_file}"; do
+                if [[ -f "$candidate" ]]; then
+                    found_original="$candidate"
+                    break
+                fi
+            done
+            if [[ -n "$found_original" ]]; then
+                info "Linking $found_original -> $target"
+                ln -f "$found_original" "$target" 2>/dev/null || {
+                    warn "Hard-link failed for $found_original; falling back to download"
+                    try_copy_or_download "${base_url}/${file}" "$target" || return 1
+                }
+                continue
+            fi
+        fi
+
+        # 2) Fall back to download.
+        if ! try_copy_or_download "${base_url}/${file}" "$target"; then
+            return 1
+        fi
+    done
+}
+
 require_file() {
     local path="$1"
     if [[ ! -f "$path" ]]; then
@@ -331,9 +412,9 @@ if [[ "$DOWNLOAD_COMMON" -eq 1 ]]; then
     if [[ "$FORCE" -eq 0 ]] && common_ready; then
         info "Common inference data already exists under ${OPENDDE_ROOT}/common"
     else
-        info "Downloading common inference data files from ${COMMON_URL}"
-        download_files_from "$COMMON_URL" "common" "${COMMON_FILES[@]}" \
-            || err "Failed to download common inference data files from ${COMMON_URL}"
+        info "Obtaining common inference data files from ${COMMON_URL}"
+        link_or_download_files_from "$COMMON_URL" "common" "${COMMON_FILES[@]}" \
+            || err "Failed to obtain common inference data files from ${COMMON_URL}"
     fi
 fi
 
@@ -341,8 +422,8 @@ if [[ "$DOWNLOAD_SEARCH_DATABASE" -eq 1 ]]; then
     if [[ "$FORCE" -eq 0 ]] && search_database_ready; then
         info "Search databases already exist under ${OPENDDE_ROOT}/search_database"
     else
-        info "Downloading search database files from ${SEARCH_DATABASE_URL}"
-        if ! download_files_from "$SEARCH_DATABASE_URL" "search_database" "${SEARCH_DATABASE_FILES[@]}"; then
+        info "Obtaining search database files from ${SEARCH_DATABASE_URL}"
+        if ! link_or_download_files_from "$SEARCH_DATABASE_URL" "search_database" "${SEARCH_DATABASE_FILES[@]}"; then
             warn "Search database files were not all available from ${SEARCH_DATABASE_URL}; trying ${DATA_BASE_URL}/search_database.tar.gz."
             download_and_extract_tarball "search_database.tar.gz"
         fi
